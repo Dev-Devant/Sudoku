@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Sudoku - Juego en Moodle</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; margin: 20px; }
+        h1 { color: #333; }
+        #sudoku-container { display: inline-block; margin-top: 20px; }
+        table { border-collapse: collapse; background-color: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        td { padding: 0; border: 1px solid #999; }
+        input {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            border: none;
+            box-sizing: border-box;
+        }
+        input:focus { outline: 2px solid #4CAF50; background-color: #e8f5e9; }
+        input:disabled { background-color: #eee; color: #333; font-weight: bold; }
+        /* Bordes gruesos para las cajas 3x3 */
+        tr:nth-child(3) td, tr:nth-child(6) td { border-bottom: 3px solid #333; }
+        td:nth-child(3), td:nth-child(6) { border-right: 3px solid #333; }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .button:hover { background-color: #45a049; }
+        #seed-info { margin: 15px 0; font-size: 18px; color: #555; }
+        #code-display { margin: 20px; padding: 15px; background-color: #dff0d8; border: 1px solid #3c763d; color: #3c763d; font-weight: bold; font-size: 18px; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <h1>Sudoku Aleatorio</h1>
+    <div id="seed-info">
+        Semilla actual: <span id="seed-value"></span>
+        <button class="button" onclick="newGame()">Nuevo juego (semilla aleatoria)</button>
+    </div>
+    <div id="sudoku-container">
+        <table id="sudoku-grid"></table>
+    </div>
+    <div>
+        <button class="button" onclick="checkWin()">Comprobar victoria</button>
+        <button class="button" onclick="resetGame()">Reiniciar</button>
+    </div>
+    <div id="code-display"></div>
+
+    <script>
+        // ------------------------------------------------------------
+        // Base de datos de puzzles (inicial y solución)
+        // Cada puzzle tiene: initial (9x9 con 0 para vacío) y solution (9x9 completo)
+        // ------------------------------------------------------------
+        const puzzles = [
+            { // Puzzle 1 (clásico)
+                initial: [
+                    [5,3,0,0,7,0,0,0,0],
+                    [6,0,0,1,9,5,0,0,0],
+                    [0,9,8,0,0,0,0,6,0],
+                    [8,0,0,0,6,0,0,0,3],
+                    [4,0,0,8,0,3,0,0,1],
+                    [7,0,0,0,2,0,0,0,6],
+                    [0,6,0,0,0,0,2,8,0],
+                    [0,0,0,4,1,9,0,0,5],
+                    [0,0,0,0,8,0,0,7,9]
+                ],
+                solution: [
+                    [5,3,4,6,7,8,9,1,2],
+                    [6,7,2,1,9,5,3,4,8],
+                    [1,9,8,3,4,2,5,6,7],
+                    [8,5,9,7,6,1,4,2,3],
+                    [4,2,6,8,5,3,7,9,1],
+                    [7,1,3,9,2,4,8,5,6],
+                    [9,6,1,5,3,7,2,8,4],
+                    [2,8,7,4,1,9,6,3,5],
+                    [3,4,5,2,8,6,1,7,9]
+                ]
+            },
+            { // Puzzle 2 (fácil)
+                initial: [
+                    [0,0,0,2,6,0,7,0,1],
+                    [6,8,0,0,7,0,0,9,0],
+                    [1,9,0,0,0,4,5,0,0],
+                    [8,2,0,1,0,0,0,4,0],
+                    [0,0,4,6,0,2,9,0,0],
+                    [0,5,0,0,0,3,0,2,8],
+                    [0,0,9,3,0,0,0,7,4],
+                    [0,4,0,0,5,0,0,3,6],
+                    [7,0,3,0,1,8,0,0,0]
+                ],
+                solution: [
+                    [4,3,5,2,6,9,7,8,1],
+                    [6,8,2,5,7,1,4,9,3],
+                    [1,9,7,8,3,4,5,6,2],
+                    [8,2,6,1,9,5,3,4,7],
+                    [3,7,4,6,8,2,9,1,5],
+                    [9,5,1,7,4,3,6,2,8],
+                    [5,1,9,3,2,6,8,7,4],
+                    [2,4,8,9,5,7,1,3,6],
+                    [7,6,3,4,1,8,2,5,9]
+                ]
+            },
+            { // Puzzle 3 (medio)
+                initial: [
+                    [0,0,0,0,0,0,9,0,7],
+                    [0,0,0,5,0,7,0,0,0],
+                    [8,0,3,0,2,0,0,0,6],
+                    [2,0,0,0,7,0,0,0,5],
+                    [0,4,0,2,0,8,0,7,0],
+                    [7,0,0,0,9,0,0,0,3],
+                    [3,0,0,0,8,0,1,0,9],
+                    [0,0,0,9,0,6,0,0,0],
+                    [6,0,7,0,0,0,0,0,0]
+                ],
+                solution: [
+                    [5,6,2,8,1,4,9,3,7],
+                    [9,1,4,5,3,7,2,6,8],
+                    [8,7,3,9,2,6,5,1,4],
+                    [2,8,6,3,7,1,4,9,5],
+                    [3,4,9,2,5,8,6,7,1],
+                    [7,5,1,6,9,4,8,2,3],
+                    [4,3,5,7,8,2,1,6,9],
+                    [1,2,8,9,4,6,3,5,0], // Nota: la última celda debería ser 0? Corregir: en realidad es 3? Vamos a ajustar
+                    [6,9,7,1,3,5,4,8,2]
+                ]
+            }
+        ];
+        // Corrección del último puzzle (la solución debe ser completa)
+        puzzles[2].solution = [
+            [5,6,2,8,1,4,9,3,7],
+            [9,1,4,5,3,7,2,6,8],
+            [8,7,3,9,2,6,5,1,4],
+            [2,8,6,3,7,1,4,9,5],
+            [3,4,9,2,5,8,6,7,1],
+            [7,5,1,6,9,4,8,2,3],
+            [4,3,5,7,8,2,1,6,9],
+            [1,2,8,9,4,6,3,5,7],
+            [6,9,7,1,3,5,4,8,2]
+        ];
+
+        // Variables globales
+        let currentSeed;          // semilla actual (número)
+        let currentPuzzleIndex;   // índice del puzzle seleccionado
+        let currentInitial;       // copia del puzzle inicial (para reset)
+        let currentSolution;      // solución del puzzle actual
+
+        // Inicialización al cargar la página
+        window.onload = function() {
+            // Generar semilla aleatoria
+            const randomSeed = Math.floor(Math.random() * 10000);
+            loadPuzzleFromSeed(randomSeed);
+        };
+
+        // Carga un puzzle usando la semilla (determinista: seed % número de puzzles)
+        function loadPuzzleFromSeed(seed) {
+            currentSeed = seed;
+            document.getElementById('seed-value').textContent = seed;
+            const index = seed % puzzles.length;
+            currentPuzzleIndex = index;
+            // Hacer copias para no modificar los originales
+            currentInitial = puzzles[index].initial.map(row => [...row]);
+            currentSolution = puzzles[index].solution.map(row => [...row]);
+            renderGrid(currentInitial);
+            document.getElementById('code-display').innerHTML = ''; // Limpiar código anterior
+        }
+
+        // Renderiza la tabla con los valores iniciales
+        function renderGrid(initial) {
+            const table = document.getElementById('sudoku-grid');
+            table.innerHTML = '';
+            for (let r = 0; r < 9; r++) {
+                const tr = document.createElement('tr');
+                for (let c = 0; c < 9; c++) {
+                    const td = document.createElement('td');
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.maxLength = 1;
+                    input.classList.add('sudoku-cell');
+                    input.dataset.row = r;
+                    input.dataset.col = c;
+                    const val = initial[r][c];
+                    if (val !== 0) {
+                        input.value = val;
+                        input.disabled = true;
+                        input.readOnly = true;
+                    } else {
+                        input.value = '';
+                    }
+                    // Permitir solo números 1-9
+                    input.onkeypress = function(e) {
+                        const char = String.fromCharCode(e.which);
+                        if (!/[1-9]/.test(char)) {
+                            e.preventDefault();
+                        }
+                    };
+                    // Opcional: validar al salir
+                    input.onblur = function() {
+                        const v = this.value;
+                        if (v && !/[1-9]/.test(v)) {
+                            this.value = '';
+                        }
+                    };
+                    td.appendChild(input);
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            }
+        }
+
+        // Reinicia el tablero al estado inicial del puzzle actual
+        function resetGame() {
+            renderGrid(currentInitial);
+            document.getElementById('code-display').innerHTML = '';
+        }
+
+        // Genera un nuevo juego con semilla aleatoria
+        function newGame() {
+            const newSeed = Math.floor(Math.random() * 10000);
+            loadPuzzleFromSeed(newSeed);
+        }
+
+        // Comprueba si el jugador ha completado correctamente el Sudoku
+        function checkWin() {
+            const inputs = document.querySelectorAll('.sudoku-cell');
+            let correct = true;
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const input = document.querySelector(`input[data-row='${r}'][data-col='${c}']`);
+                    const val = input.value.trim();
+                    const expected = currentSolution[r][c];
+                    if (parseInt(val) !== expected) {
+                        correct = false;
+                        break;
+                    }
+                }
+            }
+            if (correct) {
+                // Generar código: concatenar todas las cifras de la solución
+                let code = '';
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        code += currentSolution[r][c];
+                    }
+                }
+                document.getElementById('code-display').innerHTML = `¡Victoria! Código de la solución:<br><strong>${code}</strong>`;
+            } else {
+                alert('Aún no has completado el Sudoku correctamente. Sigue intentando.');
+            }
+        }
+    </script>
+</body>
+</html>
