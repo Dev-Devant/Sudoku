@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Decodificador de Sudoku</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; margin: 20px; }
+        h1 { color: #333; }
+        textarea { width: 300px; height: 100px; font-size: 16px; padding: 10px; margin: 10px; }
+        button { background-color: #008CBA; border: none; color: white; padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 5px; }
+        button:hover { background-color: #007bb5; }
+        table { margin: 20px auto; border-collapse: collapse; background-color: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        td { width: 50px; height: 50px; border: 1px solid #999; text-align: center; font-size: 24px; font-weight: bold; }
+        tr:nth-child(3) td, tr:nth-child(6) td { border-bottom: 3px solid #333; }
+        td:nth-child(3), td:nth-child(6) { border-right: 3px solid #333; }
+        #error { color: red; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Decodificador de Sudoku</h1>
+    <p>Introduce el código de 81 dígitos (solución del Sudoku):</p>
+    <textarea id="codeInput" placeholder="Ejemplo: 534678912672195348..."></textarea>
+    <br>
+    <button onclick="decode()">Decodificar</button>
+    <div id="error"></div>
+    <div id="grid-container"></div>
+
+    <script>
+        function decode() {
+            const code = document.getElementById('codeInput').value.trim();
+            const errorDiv = document.getElementById('error');
+            const container = document.getElementById('grid-container');
+            errorDiv.innerHTML = '';
+            container.innerHTML = '';
+
+            // Validar longitud
+            if (code.length !== 81) {
+                errorDiv.innerHTML = 'El código debe tener exactamente 81 dígitos.';
+                return;
+            }
+            // Validar que todos sean dígitos 1-9
+            if (!/^[1-9]{81}$/.test(code)) {
+                errorDiv.innerHTML = 'El código solo puede contener dígitos del 1 al 9.';
+                return;
+            }
+
+            // Construir la tabla
+            const table = document.createElement('table');
+            for (let r = 0; r < 9; r++) {
+                const tr = document.createElement('tr');
+                for (let c = 0; c < 9; c++) {
+                    const td = document.createElement('td');
+                    const index = r * 9 + c;
+                    td.textContent = code.charAt(index);
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            }
+            container.appendChild(table);
+        }
+    </script>
+</body>
+</html>
