@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 - Animaciones de movimiento visibles (corregido)</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #faf8ef; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; position: relative; }
+        h1 { color: #776e65; }
+        .seed-info { margin: 15px 0; font-size: 18px; color: #776e65; }
+        .seed-info button { margin-left: 10px; }
+        #seed-value { font-weight: bold; color: #bbada0; }
+        .grid-container {
+            position: relative;
+            margin: 20px auto;
+            width: 460px;
+            height: 460px;
+            background-color: #bbada0;
+            border-radius: 10px;
+            padding: 5px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 5px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            border-radius: 5px;
+            background-color: #cdc1b4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            font-weight: bold;
+            color: #776e65;
+            position: relative;
+            z-index: 1;
+            transition: background-color 0.1s;
+        }
+        .cell[data-value="2"] { background-color: #eee4da; }
+        .cell[data-value="4"] { background-color: #ede0c8; }
+        .cell[data-value="8"] { background-color: #f2b179; color: #f9f6f2; }
+        .cell[data-value="16"] { background-color: #f59563; color: #f9f6f2; }
+        .cell[data-value="32"] { background-color: #f67c5f; color: #f9f6f2; }
+        .cell[data-value="64"] { background-color: #f65e3b; color: #f9f6f2; }
+        .cell[data-value="128"] { background-color: #edcf72; color: #f9f6f2; font-size: 35px; }
+        .cell[data-value="256"] { background-color: #edcc61; color: #f9f6f2; font-size: 35px; }
+        .cell[data-value="512"] { background-color: #edc850; color: #f9f6f2; font-size: 35px; }
+        .cell[data-value="1024"] { background-color: #edc53f; color: #f9f6f2; font-size: 30px; }
+        .cell[data-value="2048"] { background-color: #edc22e; color: #f9f6f2; font-size: 30px; }
+
+        /* Animación para nueva ficha (rebote) */
+        .cell.new-tile {
+            animation: bounce 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        @keyframes bounce {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+
+        /* Animación para fusión (pulso fuerte) */
+        .cell.merge-tile {
+            animation: merge 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 0 20px rgba(243, 177, 121, 0.6);
+            z-index: 3;
+        }
+        @keyframes merge {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.4); box-shadow: 0 0 30px rgba(243, 177, 121, 0.8); }
+            100% { transform: scale(1); box-shadow: none; }
+        }
+
+        /* Estilo para los elementos flotantes que se mueven */
+        .moving-tile {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            font-weight: bold;
+            color: #776e65;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            z-index: 10;
+            transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            pointer-events: none;
+        }
+        /* Los colores se asignan dinámicamente con el atributo data-value, igual que .cell */
+        .moving-tile[data-value="2"] { background-color: #eee4da; }
+        .moving-tile[data-value="4"] { background-color: #ede0c8; }
+        .moving-tile[data-value="8"] { background-color: #f2b179; color: #f9f6f2; }
+        .moving-tile[data-value="16"] { background-color: #f59563; color: #f9f6f2; }
+        .moving-tile[data-value="32"] { background-color: #f67c5f; color: #f9f6f2; }
+        .moving-tile[data-value="64"] { background-color: #f65e3b; color: #f9f6f2; }
+        .moving-tile[data-value="128"] { background-color: #edcf72; color: #f9f6f2; font-size: 35px; }
+        .moving-tile[data-value="256"] { background-color: #edcc61; color: #f9f6f2; font-size: 35px; }
+        .moving-tile[data-value="512"] { background-color: #edc850; color: #f9f6f2; font-size: 35px; }
+        .moving-tile[data-value="1024"] { background-color: #edc53f; color: #f9f6f2; font-size: 30px; }
+        .moving-tile[data-value="2048"] { background-color: #edc22e; color: #f9f6f2; font-size: 30px; }
+
+        .button {
+            background-color: #8f7a66; border: none; color: white; padding: 10px 20px;
+            font-size: 18px; margin: 10px 5px; cursor: pointer; border-radius: 5px;
+        }
+        .button:hover { background-color: #9f8a76; }
+        #code-display {
+            margin: 20px 0; padding: 15px; background-color: #dff0d8; border: 1px solid #3c763d;
+            color: #3c763d; font-weight: bold; font-size: 16px; word-break: break-all;
+        }
+        #message { color: #776e65; font-size: 20px; margin: 10px; }
+        .controls-hint {
+            margin: 10px 0;
+            color: #776e65;
+            font-size: 14px;
+        }
+
+        /* Overlay de game over */
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(238, 228, 218, 0.9);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            backdrop-filter: blur(3px);
+        }
+        .game-overlay.hidden {
+            display: none;
+        }
+        .game-overlay .message {
+            font-size: 48px;
+            font-weight: bold;
+            color: #776e65;
+            margin-bottom: 20px;
+        }
+        .game-overlay .restart-btn {
+            background-color: #8f7a66;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 24px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .game-overlay .restart-btn:hover {
+            background-color: #9f8a76;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>2048</h1>
+        <div class="controls-hint">Usa las flechas o WASD para jugar</div>
+        <div class="seed-info">
+            Semilla: <span id="seed-value"></span>
+            <button class="button" id="new-game-btn">Nuevo juego (semilla aleatoria)</button>
+        </div>
+        <div style="position: relative;">
+            <div id="grid" class="grid-container"></div>
+            <div id="gameOverlay" class="game-overlay hidden">
+                <div class="message">¡Game Over!</div>
+                <button class="restart-btn" id="restartOverlayBtn">Reintentar</button>
+            </div>
+        </div>
+        <div id="message"></div>
+        <div>
+            <button class="button" id="reset-btn">Reiniciar con misma semilla</button>
+        </div>
+        <div id="code-display"></div>
+    </div>
+
+    <script>
+        (function() {
+            let rngSeed;
+            function setRNG(seed) { rngSeed = seed >>> 0; }
+            function random() {
+                rngSeed = (rngSeed * 1664525 + 1013904223) >>> 0;
+                return rngSeed / 4294967296;
+            }
+
+            let board = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+            let seed;
+            let gameWon = false;
+            let gameOver = false;
+            let score = 0;
+            let isAnimating = false;
+
+            const seedSpan = document.getElementById('seed-value');
+            const gridDiv = document.getElementById('grid');
+            const messageDiv = document.getElementById('message');
+            const codeDiv = document.getElementById('code-display');
+            const overlay = document.getElementById('gameOverlay');
+            const restartOverlayBtn = document.getElementById('restartOverlayBtn');
+
+            function simpleHash(str) {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash |= 0;
+                }
+                return Math.abs(hash).toString(16).padStart(8, '0');
+            }
+
+            function createGrid() {
+                gridDiv.innerHTML = '';
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.setAttribute('data-r', r);
+                        cell.setAttribute('data-c', c);
+                        cell.setAttribute('data-value', 0);
+                        cell.style.gridColumn = c + 1;
+                        cell.style.gridRow = r + 1;
+                        cell.textContent = '';
+                        gridDiv.appendChild(cell);
+                    }
+                }
+            }
+            createGrid();
+
+            // Función para obtener la posición de una celda en píxeles (relativa al contenedor)
+            function getCellPosition(row, col) {
+                const cell = document.querySelector(`.cell[data-r='${row}'][data-c='${col}']`);
+                if (!cell) return { left: 0, top: 0 };
+                const rect = cell.getBoundingClientRect();
+                const containerRect = gridDiv.getBoundingClientRect();
+                return {
+                    left: rect.left - containerRect.left,
+                    top: rect.top - containerRect.top
+                };
+            }
+
+            // Función para crear un tile flotante que se anima desde origen a destino
+            function animateMove(fromRow, fromCol, toRow, toCol, value) {
+                const fromPos = getCellPosition(fromRow, fromCol);
+                const toPos = getCellPosition(toRow, toCol);
+
+                const movingTile = document.createElement('div');
+                movingTile.className = 'moving-tile';
+                movingTile.setAttribute('data-value', value);
+                movingTile.textContent = value;
+                movingTile.style.left = fromPos.left + 'px';
+                movingTile.style.top = fromPos.top + 'px';
+                gridDiv.appendChild(movingTile);
+
+                // Forzar un reflow para que la transición funcione
+                movingTile.offsetHeight;
+
+                // Animar a la posición destino
+                movingTile.style.transform = `translate(${toPos.left - fromPos.left}px, ${toPos.top - fromPos.top}px)`;
+
+                // Eliminar después de la animación
+                setTimeout(() => {
+                    movingTile.remove();
+                }, 250);
+            }
+
+            // Funciones de movimiento mejoradas: devuelven { newBoard, changed, moves, merges }
+            function moveLeft() {
+                let newBoard = board.map(row => [...row]);
+                let changed = false;
+                let moves = []; // { fromRow, fromCol, toRow, toCol, value }
+                let merges = []; // { toRow, toCol, value }
+
+                for (let r = 0; r < 4; r++) {
+                    let row = board[r].map((val, c) => ({ val, c })).filter(v => v.val !== 0);
+                    for (let i = 0; i < row.length - 1; i++) {
+                        if (row[i].val === row[i+1].val) {
+                            // Fusión
+                            row[i].val *= 2;
+                            merges.push({ toRow: r, toCol: i, value: row[i].val });
+                            row.splice(i+1, 1);
+                            changed = true;
+                        }
+                    }
+                    // Registrar movimientos (sin fusiones)
+                    for (let i = 0; i < row.length; i++) {
+                        if (row[i].c !== i) {
+                            moves.push({
+                                fromRow: r,
+                                fromCol: row[i].c,
+                                toRow: r,
+                                toCol: i,
+                                value: row[i].val
+                            });
+                        }
+                    }
+                    // Construir nueva fila
+                    let newRow = new Array(4).fill(0);
+                    for (let i = 0; i < row.length; i++) {
+                        newRow[i] = row[i].val;
+                    }
+                    if (JSON.stringify(newBoard[r]) !== JSON.stringify(newRow)) changed = true;
+                    newBoard[r] = newRow;
+                }
+                return { newBoard, changed, moves, merges };
+            }
+
+            function moveRight() {
+                let newBoard = board.map(row => [...row]);
+                let changed = false;
+                let moves = [];
+                let merges = [];
+
+                for (let r = 0; r < 4; r++) {
+                    let row = board[r].map((val, c) => ({ val, c })).filter(v => v.val !== 0);
+                    for (let i = row.length - 1; i > 0; i--) {
+                        if (row[i].val === row[i-1].val) {
+                            row[i].val *= 2;
+                            merges.push({ toRow: r, toCol: 3 - (row.length - 1 - i), value: row[i].val });
+                            row.splice(i-1, 1);
+                            i--;
+                            changed = true;
+                        }
+                    }
+                    // Calcular nuevas columnas (de derecha a izquierda)
+                    for (let i = 0; i < row.length; i++) {
+                        let newCol = 3 - (row.length - 1 - i);
+                        if (row[i].c !== newCol) {
+                            moves.push({
+                                fromRow: r,
+                                fromCol: row[i].c,
+                                toRow: r,
+                                toCol: newCol,
+                                value: row[i].val
+                            });
+                        }
+                    }
+                    let newRow = new Array(4).fill(0);
+                    for (let i = 0; i < row.length; i++) {
+                        newRow[3 - (row.length - 1 - i)] = row[i].val;
+                    }
+                    if (JSON.stringify(newBoard[r]) !== JSON.stringify(newRow)) changed = true;
+                    newBoard[r] = newRow;
+                }
+                return { newBoard, changed, moves, merges };
+            }
+
+            function moveUp() {
+                let newBoard = board.map(row => [...row]);
+                let changed = false;
+                let moves = [];
+                let merges = [];
+
+                for (let c = 0; c < 4; c++) {
+                    let col = [];
+                    for (let r = 0; r < 4; r++) {
+                        if (board[r][c] !== 0) col.push({ val: board[r][c], r });
+                    }
+                    for (let i = 0; i < col.length - 1; i++) {
+                        if (col[i].val === col[i+1].val) {
+                            col[i].val *= 2;
+                            merges.push({ toRow: i, toCol: c, value: col[i].val });
+                            col.splice(i+1, 1);
+                            changed = true;
+                        }
+                    }
+                    for (let i = 0; i < col.length; i++) {
+                        if (col[i].r !== i) {
+                            moves.push({
+                                fromRow: col[i].r,
+                                fromCol: c,
+                                toRow: i,
+                                toCol: c,
+                                value: col[i].val
+                            });
+                        }
+                    }
+                    for (let r = 0; r < 4; r++) {
+                        let val = (r < col.length) ? col[r].val : 0;
+                        if (newBoard[r][c] !== val) changed = true;
+                        newBoard[r][c] = val;
+                    }
+                }
+                return { newBoard, changed, moves, merges };
+            }
+
+            function moveDown() {
+                let newBoard = board.map(row => [...row]);
+                let changed = false;
+                let moves = [];
+                let merges = [];
+
+                for (let c = 0; c < 4; c++) {
+                    let col = [];
+                    for (let r = 0; r < 4; r++) {
+                        if (board[r][c] !== 0) col.push({ val: board[r][c], r });
+                    }
+                    for (let i = col.length - 1; i > 0; i--) {
+                        if (col[i].val === col[i-1].val) {
+                            col[i].val *= 2;
+                            merges.push({ toRow: 3 - (col.length - 1 - i), toCol: c, value: col[i].val });
+                            col.splice(i-1, 1);
+                            i--;
+                            changed = true;
+                        }
+                    }
+                    for (let i = 0; i < col.length; i++) {
+                        let newRow = 3 - (col.length - 1 - i);
+                        if (col[i].r !== newRow) {
+                            moves.push({
+                                fromRow: col[i].r,
+                                fromCol: c,
+                                toRow: newRow,
+                                toCol: c,
+                                value: col[i].val
+                            });
+                        }
+                    }
+                    for (let r = 0; r < 4; r++) {
+                        let val = 0;
+                        if (r >= 4 - col.length) {
+                            val = col[r - (4 - col.length)].val;
+                        }
+                        if (newBoard[r][c] !== val) changed = true;
+                        newBoard[r][c] = val;
+                    }
+                }
+                return { newBoard, changed, moves, merges };
+            }
+
+            function updateBoardFromData(newBoard) {
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        const cell = document.querySelector(`.cell[data-r='${r}'][data-c='${c}']`);
+                        const val = newBoard[r][c];
+                        cell.setAttribute('data-value', val);
+                        cell.textContent = val === 0 ? '' : val;
+                        cell.classList.remove('merge-tile', 'new-tile');
+                    }
+                }
+            }
+
+            function addRandomTile() {
+                if (gameWon) return;
+                const empty = [];
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        if (board[r][c] === 0) empty.push([r, c]);
+                    }
+                }
+                if (empty.length === 0) return;
+                const [r, c] = empty[Math.floor(random() * empty.length)];
+                const value = random() < 0.9 ? 2 : 4;
+                board[r][c] = value;
+
+                // Actualizar la celda visualmente
+                const cell = document.querySelector(`.cell[data-r='${r}'][data-c='${c}']`);
+                cell.setAttribute('data-value', value);
+                cell.textContent = value;
+                // Animar nueva ficha
+                cell.classList.add('new-tile');
+            }
+
+            function checkWin() {
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        if (board[r][c] === 2048) return true;
+                    }
+                }
+                return false;
+            }
+
+            function canMove() {
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        if (board[r][c] === 0) return true;
+                        if (c < 3 && board[r][c] === board[r][c+1]) return true;
+                        if (r < 3 && board[r][c] === board[r+1][c]) return true;
+                    }
+                }
+                return false;
+            }
+
+            function handleMove(direction) {
+                if (gameWon || gameOver || isAnimating) return;
+
+                let result;
+                switch(direction) {
+                    case 'left': result = moveLeft(); break;
+                    case 'right': result = moveRight(); break;
+                    case 'up': result = moveUp(); break;
+                    case 'down': result = moveDown(); break;
+                }
+
+                if (result.changed) {
+                    isAnimating = true;
+
+                    // Animar movimientos
+                    result.moves.forEach(m => {
+                        animateMove(m.fromRow, m.fromCol, m.toRow, m.toCol, m.value);
+                    });
+
+                    // Preparar animaciones de fusión (se aplicarán después en las celdas destino)
+                    const mergeCells = [];
+                    result.merges.forEach(m => {
+                        mergeCells.push({ row: m.toRow, col: m.toCol, value: m.value });
+                    });
+
+                    // Actualizar el tablero lógico inmediatamente
+                    board = result.newBoard;
+
+                    // Esperar a que terminen las animaciones de movimiento (250ms) y luego actualizar el DOM
+                    setTimeout(() => {
+                        // Actualizar todas las celdas con los nuevos valores
+                        updateBoardFromData(board);
+
+                        // Aplicar animaciones de fusión a las celdas correspondientes
+                        mergeCells.forEach(({ row, col, value }) => {
+                            const cell = document.querySelector(`.cell[data-r='${row}'][data-c='${col}']`);
+                            cell.classList.add('merge-tile');
+                        });
+
+                        // Añadir nueva ficha después de las animaciones
+                        addRandomTile();
+
+                        isAnimating = false;
+
+                        if (checkWin() && !gameWon) {
+                            gameWon = true;
+                            messageDiv.innerHTML = '¡Has ganado!';
+                            const code = '2048-' + seed + '-' + simpleHash(seed + '2048G4N4D0');
+                            codeDiv.innerHTML = 'Código de finalización:<br><strong>' + code + '</strong>';
+                        } else if (!canMove()) {
+                            gameOver = true;
+                            overlay.classList.remove('hidden');
+                        }
+                    }, 250); // Tiempo igual a la duración de la animación
+                }
+            }
+
+            function initGame(seedValue) {
+                seed = seedValue;
+                setRNG(seed);
+                board = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+                gameWon = false;
+                gameOver = false;
+                score = 0;
+                isAnimating = false;
+                addRandomTile();
+                addRandomTile();
+                // addRandomTile ya actualiza las celdas, pero por si acaso llamamos a updateBoardFromData para sincronizar todo
+                updateBoardFromData(board);
+                seedSpan.textContent = seed;
+                codeDiv.innerHTML = '';
+                messageDiv.innerHTML = '';
+                overlay.classList.add('hidden');
+            }
+
+            window.addEventListener('keydown', function(e) {
+                const key = e.key.toLowerCase();
+                let direction = null;
+
+                if (key.startsWith('arrow')) {
+                    e.preventDefault();
+                    direction = key.slice(5);
+                } else if (key === 'w') {
+                    e.preventDefault();
+                    direction = 'up';
+                } else if (key === 'a') {
+                    e.preventDefault();
+                    direction = 'left';
+                } else if (key === 's') {
+                    e.preventDefault();
+                    direction = 'down';
+                } else if (key === 'd') {
+                    e.preventDefault();
+                    direction = 'right';
+                }
+
+                if (direction) {
+                    handleMove(direction);
+                }
+            });
+
+            document.getElementById('new-game-btn').addEventListener('click', function() {
+                const newSeed = Math.floor(Math.random() * 1000000);
+                initGame(newSeed);
+            });
+
+            document.getElementById('reset-btn').addEventListener('click', function() {
+                if (seed !== undefined) initGame(seed);
+            });
+
+            restartOverlayBtn.addEventListener('click', function() {
+                if (seed !== undefined) initGame(seed);
+            });
+
+            initGame(Math.floor(Math.random() * 1000000));
+        })();
+    </script>
+</body>
+</html>
